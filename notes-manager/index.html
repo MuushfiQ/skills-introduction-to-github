@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notes Manager</title>
+  <style>
+    /* ── Reset & Base ────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f4f6f9;
+      --sidebar-bg: #1e1e2e;
+      --sidebar-text: #cdd6f4;
+      --sidebar-hover: #313244;
+      --sidebar-active: #89b4fa;
+      --accent: #89b4fa;
+      --accent-dark: #5b9bd5;
+      --danger: #f38ba8;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --tag-bg: #e0f2fe;
+      --tag-text: #0369a1;
+      --radius: 10px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    #sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      gap: 4px;
+    }
+
+    #sidebar h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 0 20px 16px;
+      border-bottom: 1px solid #313244;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-section-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #585b70;
+      padding: 16px 20px 4px;
+    }
+
+    .topic-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+      cursor: pointer;
+      border-radius: 0;
+      transition: background 0.15s;
+      gap: 8px;
+    }
+
+    .topic-item:hover { background: var(--sidebar-hover); }
+
+    .topic-item.active {
+      background: var(--sidebar-hover);
+      border-left: 3px solid var(--accent);
+    }
+
+    .topic-item .topic-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.9rem;
+    }
+
+    .topic-item .topic-count {
+      font-size: 0.75rem;
+      background: #313244;
+      border-radius: 20px;
+      padding: 1px 7px;
+      color: #a6adc8;
+    }
+
+    .topic-delete-btn {
+      background: none;
+      border: none;
+      color: #585b70;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 0 2px;
+      line-height: 1;
+      display: none;
+    }
+
+    .topic-item:hover .topic-delete-btn { display: inline; }
+    .topic-delete-btn:hover { color: var(--danger); }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 20px 0;
+      border-top: 1px solid #313244;
+    }
+
+    #new-topic-input {
+      width: 100%;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      padding: 7px 10px;
+      color: var(--sidebar-text);
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    #new-topic-input::placeholder { color: #585b70; }
+    #new-topic-input:focus { border-color: var(--accent); }
+
+    /* ── Main Area ───────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Toolbar */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 24px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+    }
+
+    #toolbar h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    #search-input {
+      flex: 1;
+      min-width: 180px;
+      max-width: 300px;
+      padding: 8px 14px;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      font-size: 0.88rem;
+      outline: none;
+      background: var(--bg);
+      transition: border-color 0.15s;
+    }
+
+    #search-input:focus { border-color: var(--accent); }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #1e1e2e;
+    }
+
+    .btn-primary:hover { background: var(--accent-dark); color: #fff; }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: var(--text);
+    }
+
+    .btn-secondary:hover { background: #cbd5e1; }
+
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { opacity: 0.85; }
+
+    /* Notes grid */
+    #notes-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    #empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      height: 100%;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    #empty-state .icon { font-size: 3rem; }
+    #empty-state p { max-width: 280px; font-size: 0.95rem; }
+
+    #notes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    /* Note card */
+    .note-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: box-shadow 0.15s, transform 0.15s;
+      cursor: pointer;
+    }
+
+    .note-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+    }
+
+    .note-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .note-title {
+      font-size: 1rem;
+      font-weight: 600;
+      flex: 1;
+      line-height: 1.3;
+    }
+
+    .note-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .note-card:hover .note-actions { opacity: 1; }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 2px 4px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+
+    .icon-btn:hover { background: var(--bg); }
+    .icon-btn.delete:hover { color: var(--danger); }
+
+    .note-body {
+      font-size: 0.88rem;
+      color: var(--muted);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .note-footer {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: auto;
+    }
+
+    .note-tag {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+
+    .note-date {
+      margin-left: auto;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    /* ── Modal ───────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--card-bg);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
+
+    .modal-body {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus { border-color: var(--accent); background: #fff; }
+
+    .field textarea {
+      min-height: 160px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 16px 24px 20px;
+      border-top: 1px solid var(--card-border);
+    }
+
+    /* ── View Modal ──────────────────────────────────────────── */
+    #view-modal .modal { max-width: 640px; }
+
+    #view-title { font-size: 1.3rem; font-weight: 700; line-height: 1.3; }
+
+    #view-body {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      color: var(--text);
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    #view-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* ── Confirm Modal ───────────────────────────────────────── */
+    #confirm-modal .modal { max-width: 380px; }
+    #confirm-modal .modal-body { padding: 24px; }
+    #confirm-modal p { font-size: 0.95rem; color: var(--muted); }
+
+    /* ── Scrollbar ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      #sidebar { width: 200px; min-width: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────── -->
+<aside id="sidebar">
+  <h1><span aria-hidden="true">📝</span> Notes Manager</h1>
+
+  <span class="sidebar-section-title">Topics</span>
+
+  <div id="topic-list">
+    <!-- Populated by JS -->
+  </div>
+
+  <div class="sidebar-footer">
+    <input
+      id="new-topic-input"
+      type="text"
+      placeholder="+ New topic (Enter)"
+      maxlength="40"
+    />
+  </div>
+</aside>
+
+<!-- ── Main ───────────────────────────────────── -->
+<main id="main">
+  <div id="toolbar">
+    <h2 id="toolbar-title">All Notes</h2>
+    <input id="search-input" type="search" placeholder="Search notes…" aria-label="Search notes" />
+    <button class="btn btn-primary" id="new-note-btn">+ New Note</button>
+  </div>
+
+  <div id="notes-container">
+    <div id="empty-state" class="hidden">
+      <span class="icon" aria-hidden="true">🗒️</span>
+      <p>No notes yet. Click <strong>+ New Note</strong> to get started!</p>
+    </div>
+    <div id="notes-grid"></div>
+  </div>
+</main>
+
+<!-- ── Edit / Create Modal ──────────────────────── -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-heading">
+    <div class="modal-header">
+      <h3 id="edit-modal-heading">New Note</h3>
+      <button class="icon-btn" id="edit-close-btn" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="edit-title">Title</label>
+        <input id="edit-title" type="text" placeholder="Note title…" maxlength="120" aria-describedby="edit-title-error" />
+        <span id="edit-title-error" role="alert" aria-live="polite" style="color:var(--danger);font-size:0.8rem;display:none;">Please enter a title or some content.</span>
+      </div>
+      <div class="field">
+        <label for="edit-topic">Topic</label>
+        <select id="edit-topic">
+          <option value="">— No topic —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="edit-content">Content</label>
+        <textarea id="edit-content" placeholder="Write your note here…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="edit-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="edit-save-btn">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── View Modal ─────────────────────────────── -->
+<div class="modal-overlay hidden" id="view-modal">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <span id="view-title"></span>
+      <button class="icon-btn" id="view-close-btn" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" style="flex:1; overflow-y:auto;">
+      <div id="view-meta"></div>
+      <div id="view-body" style="margin-top:12px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="view-edit-btn">Edit</button>
+      <button class="btn btn-danger" id="view-delete-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Confirm Modal ──────────────────────────── -->
+<div class="modal-overlay hidden" id="confirm-modal">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3>Delete Note?</h3>
+      <button class="icon-btn" id="confirm-close-btn" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>This action cannot be undone. Are you sure you want to delete this note?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-cancel-btn">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── State ────────────────────────────────────────────────────── */
+const STORAGE_KEY = 'notes_manager_v1';
+
+let state = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) { /* ignore */ }
+  return { topics: [], notes: [] };
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/* ── Helpers ──────────────────────────────────────────────────── */
+function uid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function escape(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ── DOM Refs ─────────────────────────────────────────────────── */
+const topicList      = document.getElementById('topic-list');
+const newTopicInput  = document.getElementById('new-topic-input');
+const toolbarTitle   = document.getElementById('toolbar-title');
+const searchInput    = document.getElementById('search-input');
+const newNoteBtn     = document.getElementById('new-note-btn');
+const notesGrid      = document.getElementById('notes-grid');
+const emptyState     = document.getElementById('empty-state');
+
+// Edit modal
+const editModal      = document.getElementById('edit-modal');
+const editHeading    = document.getElementById('edit-modal-heading');
+const editTitle      = document.getElementById('edit-title');
+const editTopic      = document.getElementById('edit-topic');
+const editContent    = document.getElementById('edit-content');
+const editSaveBtn    = document.getElementById('edit-save-btn');
+const editCancelBtn  = document.getElementById('edit-cancel-btn');
+const editCloseBtn   = document.getElementById('edit-close-btn');
+
+// View modal
+const viewModal      = document.getElementById('view-modal');
+const viewTitle      = document.getElementById('view-title');
+const viewMeta       = document.getElementById('view-meta');
+const viewBody       = document.getElementById('view-body');
+const viewEditBtn    = document.getElementById('view-edit-btn');
+const viewDeleteBtn  = document.getElementById('view-delete-btn');
+const viewCloseBtn   = document.getElementById('view-close-btn');
+
+// Confirm modal
+const confirmModal   = document.getElementById('confirm-modal');
+const confirmOkBtn   = document.getElementById('confirm-ok-btn');
+const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+const confirmCloseBtn  = document.getElementById('confirm-close-btn');
+
+/* ── Active filter & editing state ───────────────────────────── */
+let activeTopic   = null; // null = All Notes
+let editingNoteId = null;
+let viewingNoteId = null;
+let pendingDeleteId = null;
+
+/* ── Render ───────────────────────────────────────────────────── */
+function render() {
+  renderSidebar();
+  renderNotes();
+}
+
+function renderSidebar() {
+  topicList.innerHTML = '';
+
+  // "All Notes" item
+  const allItem = createTopicItem('All Notes', null, state.notes.length);
+  topicList.appendChild(allItem);
+
+  // Per-topic items
+  state.topics.forEach(t => {
+    const count = state.notes.filter(n => n.topic === t).length;
+    const item = createTopicItem(t, t, count);
+    topicList.appendChild(item);
+  });
+
+  // Populate topic select in edit modal
+  syncTopicSelect();
+}
+
+function createTopicItem(label, topicValue, count) {
+  const div = document.createElement('div');
+  div.className = 'topic-item' + (activeTopic === topicValue ? ' active' : '');
+  div.innerHTML = `
+    <span class="topic-name">${escape(label)}</span>
+    <span class="topic-count">${count}</span>
+    ${topicValue !== null ? `<button class="topic-delete-btn" title="Delete topic ${escape(topicValue)}" aria-label="Delete topic ${escape(topicValue)}" data-topic="${escape(topicValue)}">✕</button>` : ''}
+  `;
+  div.addEventListener('click', (e) => {
+    if (e.target.classList.contains('topic-delete-btn')) return;
+    activeTopic = topicValue;
+    toolbarTitle.textContent = label;
+    render();
+  });
+  const delBtn = div.querySelector('.topic-delete-btn');
+  if (delBtn) {
+    delBtn.addEventListener('click', () => deleteTopic(topicValue));
+  }
+  return div;
+}
+
+function syncTopicSelect() {
+  const current = editTopic.value;
+  editTopic.innerHTML = '<option value="">— No topic —</option>';
+  state.topics.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    if (t === current) opt.selected = true;
+    editTopic.appendChild(opt);
+  });
+}
+
+function renderNotes() {
+  const query = searchInput.value.trim().toLowerCase();
+
+  let notes = state.notes.filter(n => {
+    if (activeTopic !== null && n.topic !== activeTopic) return false;
+    if (query) {
+      return (
+        n.title.toLowerCase().includes(query) ||
+        n.content.toLowerCase().includes(query) ||
+        (n.topic && n.topic.toLowerCase().includes(query))
+      );
+    }
+    return true;
+  });
+
+  // Sort newest first
+  notes = notes.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+  notesGrid.innerHTML = '';
+
+  if (notes.length === 0) {
+    emptyState.classList.remove('hidden');
+    notesGrid.classList.add('hidden');
+  } else {
+    emptyState.classList.add('hidden');
+    notesGrid.classList.remove('hidden');
+    notes.forEach(n => notesGrid.appendChild(createNoteCard(n)));
+  }
+}
+
+function createNoteCard(note) {
+  const card = document.createElement('div');
+  card.className = 'note-card';
+  card.dataset.id = note.id;
+  card.innerHTML = `
+    <div class="note-card-header">
+      <span class="note-title">${escape(note.title || 'Untitled')}</span>
+      <span class="note-actions">
+        <button class="icon-btn edit" title="Edit note" aria-label="Edit note"><span aria-hidden="true">✏️</span></button>
+        <button class="icon-btn delete" title="Delete note" aria-label="Delete note"><span aria-hidden="true">🗑</span></button>
+      </span>
+    </div>
+    <div class="note-body">${escape(note.content)}</div>
+    <div class="note-footer">
+      ${note.topic ? `<span class="note-tag">${escape(note.topic)}</span>` : ''}
+      <span class="note-date">${formatDate(note.updatedAt)}</span>
+    </div>
+  `;
+
+  // Click card body → view
+  card.addEventListener('click', (e) => {
+    if (e.target.classList.contains('edit') || e.target.classList.contains('delete')) return;
+    openViewModal(note.id);
+  });
+
+  card.querySelector('.edit').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openEditModal(note.id);
+  });
+
+  card.querySelector('.delete').addEventListener('click', (e) => {
+    e.stopPropagation();
+    promptDelete(note.id);
+  });
+
+  return card;
+}
+
+/* ── Topic Actions ────────────────────────────────────────────── */
+function addTopic(name) {
+  name = name.trim();
+  if (!name || state.topics.includes(name)) return false;
+  state.topics.push(name);
+  save();
+  render();
+  return true;
+}
+
+function deleteTopic(name) {
+  // Remove topic tag from notes but keep the notes
+  state.notes.forEach(n => { if (n.topic === name) n.topic = ''; });
+  state.topics = state.topics.filter(t => t !== name);
+  if (activeTopic === name) {
+    activeTopic = null;
+    toolbarTitle.textContent = 'All Notes';
+  }
+  save();
+  render();
+}
+
+/* ── Note Actions ─────────────────────────────────────────────── */
+function saveNote(id, title, topic, content) {
+  const now = new Date().toISOString();
+  if (id) {
+    const note = state.notes.find(n => n.id === id);
+    if (note) {
+      note.title = title;
+      note.topic = topic;
+      note.content = content;
+      note.updatedAt = now;
+    }
+  } else {
+    state.notes.push({ id: uid(), title, topic, content, createdAt: now, updatedAt: now });
+  }
+  save();
+  render();
+}
+
+function deleteNote(id) {
+  state.notes = state.notes.filter(n => n.id !== id);
+  save();
+  render();
+}
+
+/* ── Edit Modal ───────────────────────────────────────────────── */
+function openEditModal(noteId) {
+  editingNoteId = noteId || null;
+  editHeading.textContent = noteId ? 'Edit Note' : 'New Note';
+  syncTopicSelect();
+
+  if (noteId) {
+    const note = state.notes.find(n => n.id === noteId);
+    editTitle.value = note.title;
+    editTopic.value = note.topic || '';
+    editContent.value = note.content;
+  } else {
+    editTitle.value = '';
+    editTopic.value = activeTopic || '';
+    editContent.value = '';
+  }
+
+  closeViewModal();
+  editModal.classList.remove('hidden');
+  editTitle.focus();
+}
+
+function closeEditModal() {
+  editModal.classList.add('hidden');
+  editingNoteId = null;
+  const titleError = document.getElementById('edit-title-error');
+  if (titleError) { titleError.style.display = 'none'; }
+  editTitle.style.borderColor = '';
+}
+
+/* ── View Modal ───────────────────────────────────────────────── */
+function openViewModal(noteId) {
+  const note = state.notes.find(n => n.id === noteId);
+  if (!note) return;
+  viewingNoteId = noteId;
+
+  viewTitle.textContent = note.title || 'Untitled';
+  viewBody.textContent = note.content;
+  viewMeta.innerHTML = `
+    ${note.topic ? `<span class="note-tag">${escape(note.topic)}</span>` : ''}
+    <span style="font-size:0.8rem;color:var(--muted);margin-left:auto;">
+      Updated ${formatDate(note.updatedAt)}
+    </span>
+  `;
+
+  viewModal.classList.remove('hidden');
+}
+
+function closeViewModal() {
+  viewModal.classList.add('hidden');
+  viewingNoteId = null;
+}
+
+/* ── Confirm (delete) Modal ───────────────────────────────────── */
+function promptDelete(noteId) {
+  pendingDeleteId = noteId;
+  confirmModal.classList.remove('hidden');
+}
+
+function closeConfirmModal() {
+  confirmModal.classList.add('hidden');
+  pendingDeleteId = null;
+}
+
+/* ── Event Listeners ──────────────────────────────────────────── */
+// New topic via Enter
+newTopicInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const ok = addTopic(newTopicInput.value);
+    if (ok) newTopicInput.value = '';
+  }
+});
+
+// New note button
+newNoteBtn.addEventListener('click', () => openEditModal(null));
+
+// Search
+searchInput.addEventListener('input', () => renderNotes());
+
+// Edit modal buttons
+editSaveBtn.addEventListener('click', () => {
+  const title   = editTitle.value.trim();
+  const topic   = editTopic.value;
+  const content = editContent.value.trim();
+  const titleError = document.getElementById('edit-title-error');
+  if (!title && !content) {
+    editTitle.focus();
+    editTitle.style.borderColor = 'var(--danger)';
+    titleError.style.display = 'block';
+    setTimeout(() => {
+      editTitle.style.borderColor = '';
+      titleError.style.display = 'none';
+    }, 3000);
+    return;
+  }
+  titleError.style.display = 'none';
+  saveNote(editingNoteId, title || 'Untitled', topic, content);
+  closeEditModal();
+});
+
+editCancelBtn.addEventListener('click', closeEditModal);
+editCloseBtn.addEventListener('click', closeEditModal);
+
+editModal.addEventListener('click', (e) => {
+  if (e.target === editModal) closeEditModal();
+});
+
+// View modal buttons
+viewCloseBtn.addEventListener('click', closeViewModal);
+viewModal.addEventListener('click', (e) => {
+  if (e.target === viewModal) closeViewModal();
+});
+
+viewEditBtn.addEventListener('click', () => openEditModal(viewingNoteId));
+
+viewDeleteBtn.addEventListener('click', () => {
+  promptDelete(viewingNoteId);
+  closeViewModal();
+});
+
+// Confirm modal buttons
+confirmOkBtn.addEventListener('click', () => {
+  if (pendingDeleteId) deleteNote(pendingDeleteId);
+  closeConfirmModal();
+});
+
+confirmCancelBtn.addEventListener('click', closeConfirmModal);
+confirmCloseBtn.addEventListener('click', closeConfirmModal);
+
+confirmModal.addEventListener('click', (e) => {
+  if (e.target === confirmModal) closeConfirmModal();
+});
+
+// Keyboard: Escape closes any open modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!confirmModal.classList.contains('hidden')) { closeConfirmModal(); return; }
+    if (!editModal.classList.contains('hidden'))    { closeEditModal();    return; }
+    if (!viewModal.classList.contains('hidden'))    { closeViewModal();    return; }
+  }
+});
+
+/* ── Bootstrap ────────────────────────────────────────────────── */
+// Seed some sample notes on first visit
+if (state.notes.length === 0 && state.topics.length === 0) {
+  state.topics = ['Work', 'Personal', 'Learning'];
+  state.notes = [
+    {
+      id: uid(),
+      title: 'Welcome to Notes Manager!',
+      topic: 'Personal',
+      content: 'You can create, edit, and delete notes.\n\nOrganize them by topic using the sidebar on the left.\n\nUse the search bar to quickly find any note.',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: uid(),
+      title: 'Getting Started',
+      topic: 'Learning',
+      content: '1. Click "+ New Note" to create a note.\n2. Add topics in the sidebar (type and press Enter).\n3. Assign topics to notes when creating or editing.\n4. Click a note card to read it in full.',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+  save();
+}
+
+render();
+</script>
+</body>
+</html>
